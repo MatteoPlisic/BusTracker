@@ -1,0 +1,131 @@
+= Bus Tracker Croatia: Project Documentation
+:author: Matteo Plišić
+:email: <matteo.plisic@gmail.com>
+:revnumber: 0.3.0
+:revdate: {docdate}
+:doctype: book
+:toc: left
+:toc-title: Table of Contents
+:icons: font
+:sectnums:
+
+// This document outlines the features, architecture, and design for a cross-country
+// bus tracking application in Croatia.
+
+== Architectural Overview
+
+The application will be developed using a modern, multi-platform technology stack, separated into three distinct services that communicate via a RESTful API.
+
+=== Backend Service
+A **Java Spring Boot** application responsible for all business logic, database interactions, and real-time data distribution. The architecture follows a standard three-layer pattern:
+
+*   *Controller Layer:* Handles incoming HTTP requests and delegates to the service layer. Contains no business logic.
+*   *Service Layer:* Contains the core application logic, orchestrating data flow and business rules.
+*   *Repository Layer:* Manages all data access and communication with the PostgreSQL database using Spring Data JPA.
+
+=== Web Frontend
+A **React with TypeScript** single-page application (SPA) providing a responsive user interface for web browsers. The project will be structured using a feature-centric approach for scalability and maintainability. Key directories include:
+
+*   `api/`: Centralized logic for all communication with the backend.
+*   `components/`: Shared, reusable UI components (e.g., Button, Map).
+*   `features/`: Components specific to a single feature (e.g., BusFilter, TripDetails).
+*   `pages/`: Top-level components that represent a full page or route.
+*   `types/`: Centralized TypeScript type and interface definitions mirroring backend DTOs.
+
+=== Android Frontend
+A native **Kotlin** application built with modern Android practices. It follows the Google-recommended **MVVM (Model-View-ViewModel)** architecture with a clear separation of concerns.
+
+*   *UI Layer:* Built with **Jetpack Compose**. It is responsible for displaying state and forwarding user events. It observes state from the ViewModel using `StateFlow`.
+*   *ViewModel Layer:* Contains UI-related logic and exposes UI state. Survives configuration changes and communicates with the Data Layer.
+*   *Data Layer:* Provides a single source of truth for application data. It is composed of:
+** *Repositories:* The main entry point for data access for the ViewModels.
+** *Remote Data Sources:* Uses the **Retrofit** library to make network calls to the Spring Boot backend.
+*   *Dependency Injection:* Uses **Hilt** to manage dependencies between layers, promoting decoupling and testability.
+
+The project structure will be a hybrid model: the UI layer is packaged by feature (e.g., `map`, `schedule`), while the shared Data Layer is packaged by layer (`repository`, `model`, `remote`).
+
+== Core Features (Version 1.0)
+
+The initial version of the application will focus on delivering a seamless and intuitive bus tracking experience.
+
+=== Live Bus Location on Map
+The primary feature. Users can view a map with bus icons moving in near real-time. Clicking an icon reveals detailed information.
+
+=== Filtering by Company and Line
+Users can filter the buses shown on the map. The filtering logic will be hierarchical:
+. The user first selects a bus company (*FlexingBus*, *Departa*, *Brijuni Trans*).
+. The UI then updates to show only the lines operated by that company.
+. The user can optionally select a specific line to focus on.
+
+=== Trip Details and Stop ETA
+When a user selects a specific bus, detailed information about its current trip will be displayed.
+
+*   The bus's line number and route name will be clearly shown (e.g., *Line 345: Rijeka -> Split*).
+*   The full route path will be highlighted visually on the map.
+*   An information panel will list all *upcoming* stops for the current trip.
+*   For each upcoming stop, an **Estimated Time of Arrival (ETA)** will be displayed.
+*   The ETA calculation will be based on the bus's current location, its average speed, and the distance to the upcoming stops along the defined route.
+*   Stops that the bus has already passed will be visually distinguished (e.g., grayed out or marked with a check).
+
+=== Timetable/Schedule View
+To allow users to plan their travel, a simple timetable view will be available.
+
+*   Users can search for a route (e.g., by selecting a departure and destination city).
+*   The application will display a list of all scheduled trips for that route for the current day.
+*   Each entry will show the line number, departure time, and scheduled arrival time.
+
+== Discussion: User Authentication
+
+*Decision for v1.0:* **NO, user accounts will NOT be required.**
+
+*Rationale:* The core value is instant, anonymous access to tracking information. Registration is a barrier to entry for a demo product.
+
+*Future Consideration (v2.0):* User accounts will be added later to enable personalized features like saving favorite routes and setting up notifications.
+
+== Future Enhancements & Feature Roadmap
+
+*   User Accounts & Profiles
+*   Favorite Routes/Buses
+*   Real-time Notifications (e.g., "bus is 15 mins away")
+*   Administrator Panel (for managing data without database access)
+*   Historical Trip Playback
+
+== Preliminary Data Models
+
+The following data models will form the core of the backend database schema.
+
+=== Company
+*   `id` (Primary Key)
+*   `name` (e.g., "FlexingBus")
+
+=== Bus
+*   `id` (Primary Key)
+*   `licensePlate` (e.g., "RI-1234-ZG")
+*   `companyId` (Foreign Key to Company)
+*   `currentTripId` (Foreign Key to Trip, nullable)
+
+=== Stop
+*   `id` (Primary Key)
+*   `name` (e.g., "Autobusni Kolodvor Zagreb")
+*   `latitude`
+*   `longitude`
+
+=== Route
+*   `id` (Primary Key)
+*   `lineNumber` (String, e.g., "345" or "102A")
+*   `name` (e.g., "Rijeka - Split Direct")
+*   `stops` (An ordered list of Stop IDs, representing the journey path)
+
+=== Trip
+*   `id` (Primary Key)
+*   `routeId` (Foreign Key to Route)
+*   `busId` (Foreign Key to Bus)
+*   `departureTime` (Timestamp, e.g., '2023-11-08T08:00:00Z')
+*   `status` (Enum: SCHEDULED, DEPARTED, ARRIVED, CANCELLED)
+
+=== BusLocation
+*   `busId` (Primary Key / Foreign Key)
+*   `latitude`
+*   `longitude`
+*   `timestamp`
+*   `speed` (Optional)
